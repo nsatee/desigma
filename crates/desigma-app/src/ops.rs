@@ -831,9 +831,15 @@ impl App {
         match io::load_path(&p) {
             Ok(doc) => {
                 let name = doc.name.clone();
-                // An SVG becomes a new unsaved document, never overwritten by Save.
-                let svg = p.extension().is_some_and(|e| e.eq_ignore_ascii_case("svg"));
-                self.replace_document(doc, (!svg).then_some(p));
+                // An SVG or raster image becomes a new unsaved document, never overwritten by Save.
+                let imported = p.extension().is_some_and(|e| {
+                    e.eq_ignore_ascii_case("svg")
+                        || e.eq_ignore_ascii_case("png")
+                        || e.eq_ignore_ascii_case("jpg")
+                        || e.eq_ignore_ascii_case("jpeg")
+                        || e.eq_ignore_ascii_case("webp")
+                });
+                self.replace_document(doc, (!imported).then_some(p));
                 self.show_toast(format!("Opened {name}"), false);
             }
             Err(e) => self.show_toast(e, true),

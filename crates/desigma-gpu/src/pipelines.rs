@@ -81,8 +81,11 @@ pub struct FxParams {
     /// Viewport size of the pass (see `fx.wgsl`).
     pub out_w: f32,
     pub out_h: f32,
-    pub pad: [f32; 2],
+    pub pad: [f32; 3],
 }
+// WGSL uniform structs round up to 8-byte alignment, so `P` in fx.wgsl is 104
+// bytes, not 100. Keep this in sync or `displace`/`glass` fail validation.
+const _: () = assert!(size_of::<FxParams>() == 104);
 
 pub struct Layouts {
     pub fx: wgpu::BindGroupLayout,

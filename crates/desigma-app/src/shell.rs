@@ -542,36 +542,85 @@ impl eframe::App for Shell {
 }
 
 impl Shell {
-    /// Files dropped on the window: `.svg` files are placed at the drop point,
-    /// anything else (the first file) is opened as a document.
+    /// Files dropped on the window: media files (images, SVG, video) are placed
+    /// at the drop point, staggered; a document file anywhere in the drop is
+    /// opened instead (the first one), preserving File>Open behavior.
     fn handle_drops(&mut self, ctx: &Context) {
         let (files, pos) = ctx.input(|i| (i.raw.dropped_files.clone(), i.pointer.hover_pos().or(i.pointer.latest_pos())));
-        let is_svg = |f: &egui::DroppedFile| {
-            let name = f.path.as_ref().and_then(|p| p.to_str()).unwrap_or(&f.name);
-            name.rsplit('.').next().is_some_and(|e| e.eq_ignore_ascii_case("svg"))
+        let path_kind = |f: &egui::DroppedFile| {
+            let ext = f.path.as_deref().and_then(|p| p.extension()).and_then(|e| e.to_str()).unwrap_or("");
+            interact::media_kind(ext)
         };
-        if let Some(path) = files.iter().filter(|f| !is_svg(f)).find_map(|f| f.path.clone()) {
+        if let Some(path) = files.iter().filter(|f| f.path.is_some()).find(|f| path_kind(f) == interact::MediaKind::Other).and_then(|f| f.path.clone()) {
             self.app.open_path(path);
             return;
         }
-        for (nth, f) in files.iter().filter(|f| is_svg(f)).enumerate() {
-            let text = match (&f.path, &f.bytes) {
-                (Some(p), _) => std::fs::read_to_string(p).map_err(|e| format!("Cannot read {}: {e}", p.display())),
-                (None, Some(b)) => String::from_utf8(b.to_vec()).map_err(|_| "The SVG is not valid UTF-8".to_string()),
-                (None, None) => continue,
+        let base = {
+            let view = self.app.canvas_rect;
+            let screen = pos.filter(|p| view.contains(*p)).unwrap_or(view.center());
+            self.app.view.to_page(view.min, screen)
+        };
+        let mut nth = 0usize;
+        for f in &files {
+            let ext = match &f.path {
+                Some(p) => p.extension().and_then(|e| e.to_str()).unwrap_or(""),
+                None => f.name.rsplit('.').next().filter(|_| f.name.contains('.')).unwrap_or(""),
             };
-            let stem = f
-                .path
-                .as_deref()
-                .and_then(|p| p.file_stem())
-                .and_then(|s| s.to_str())
-                .or_else(|| f.name.strip_suffix(".svg"))
-                .filter(|s| !s.is_empty())
-                .unwrap_or("svg")
-                .to_string();
-            match text {
-                Ok(t) => crate::clipboard::drop_svg(&mut self.app, &t, &stem, pos, nth),
-                Err(e) => self.app.show_toast(e, true),
+            let kind = interact::media_kind(ext);
+            match kind {
+                interact::MediaKind::Svg => {
+                    let text = match (&f.path, &f.bytes) {
+                        (Some(p), _) => std::fs::read_to_string(p).map_err(|e| format!("Cannot read {}: {e}", p.display())),
+                        (None, Some(b)) => String::from_utf8(b.to_vec()).map_err(|_| "The SVG is not valid UTF-8".to_string()),
+                        (None, None) => continue,
+                    };
+                    let stem = f
+                        .path
+                        .as_deref()
+                        .and_then(|p| p.file_stem())
+                        .and_then(|s| s.to_str())
+                        .or_else(|| f.name.strip_suffix(".svg"))
+                        .filter(|s| !s.is_empty())
+                        .unwrap_or("svg")
+                        .to_string();
+                    match text {
+                        Ok(t) => crate::clipboard::drop_svg(&mut self.app, &t, &stem, pos, nth),
+                        Err(e) => self.app.show_toast(e, true),
+                    }
+                    nth += 1;
+                }
+                interact::MediaKind::Raster | interact::MediaKind::Video => {
+                    let bytes = match (&f.path, &f.bytes) {
+                        (Some(p), _) => match std::fs::read(p) {
+                            Ok(b) => b,
+                            Err(e) => {
+                                self.app.show_toast(format!("Cannot read {}: {e}", p.display()), true);
+                                continue;
+                            }
+                        },
+                        (None, Some(b)) => b.to_vec(),
+                        (None, None) => continue,
+                    };
+                    let name = f
+                        .path
+                        .as_deref()
+                        .and_then(|p| p.file_stem())
+                        .and_then(|s| s.to_str())
+                        .or_else(|| f.name.rfind('.').map(|i| &f.name[..i]).filter(|s| !s.is_empty()))
+                        .filter(|s| !s.is_empty())
+                        .unwrap_or("Image")
+                        .to_string();
+                    let mut at = base;
+                    at.x += 24.0 * nth as f32;
+                    at.y += 24.0 * nth as f32;
+                    if kind == interact::MediaKind::Video {
+                        interact::place_video_bytes(&mut self.app, at, &name, bytes);
+                    } else {
+                        interact::place_image_bytes(&mut self.app, at, &name, bytes);
+                    }
+                    nth += 1;
+                }
+                interact::MediaKind::Other => continue,
             }
         }
     }

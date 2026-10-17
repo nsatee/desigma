@@ -952,9 +952,32 @@ pub fn finish_pen(app: &mut App) {
     }
 }
 
-// ------------------------------------------------------------------ images
-/// Extensions offered by the image picker.
-pub const IMAGE_EXTENSIONS: [&str; 5] = ["png", "jpg", "jpeg", "webp", "svg"];
+/// Classifies a file extension for canvas placement: vector, raster image,
+/// video, or anything else (documents fall through to File>Open).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MediaKind {
+    Svg,
+    Raster,
+    Video,
+    Other,
+}
+
+/// Case-insensitive extension lookup shared by the picker and drag-drop.
+pub(crate) fn media_kind(ext: &str) -> MediaKind {
+    if ext.eq_ignore_ascii_case("svg") {
+        return MediaKind::Svg;
+    }
+    if ["png", "jpg", "jpeg", "webp"].iter().any(|e| e.eq_ignore_ascii_case(ext)) {
+        return MediaKind::Raster;
+    }
+    if crate::video::is_video_extension(ext) {
+        return MediaKind::Video;
+    }
+    MediaKind::Other
+}
+
+ /// Extensions offered by the image picker.
+ pub const IMAGE_EXTENSIONS: [&str; 5] = ["png", "jpg", "jpeg", "webp", "svg"];
 
 /// Validates image bytes (PNG, JPEG or WebP) and returns the bytes to embed
 /// plus the pixel size. WebP is re-encoded as PNG so every renderer build can
@@ -976,32 +999,40 @@ pub fn prepare_image(bytes: Vec<u8>) -> Result<(Vec<u8>, u32, u32), String> {
 
 fn place_image(app: &mut App, page: DV) {
     let exts: Vec<&str> = IMAGE_EXTENSIONS.iter().chain(crate::video::VIDEO_EXTENSIONS.iter()).copied().collect();
-    let Some(path) = rfd::FileDialog::new().add_filter("Images and video", &exts).pick_file() else { return };
-    let Ok(bytes) = std::fs::read(&path) else {
-        app.show_toast("Cannot read file", true);
-        return;
-    };
-    let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("Image").to_string();
-    if path.extension().and_then(|e| e.to_str()).is_some_and(crate::video::is_video_extension) {
-        place_video_bytes(app, page, &name, bytes);
-        return;
-    }
-    if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("svg")) {
-        // Vector layers, centered on the click.
-        let parent = create::container_at(&app.doc, app.page, page, &[]);
-        match String::from_utf8(bytes) {
-            Ok(text) => {
-                if let Err(e) = crate::clipboard::place_svg(app, &text, &name, page, parent) {
-                    app.show_toast(e, true);
-                } else {
-                    app.tool = Tool::Move;
+    let Some(paths) = rfd::FileDialog::new().add_filter("Images and video", &exts).pick_files() else { return };
+    for (nth, path) in paths.iter().enumerate() {
+        let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("Image").to_string();
+        let Ok(bytes) = std::fs::read(path) else {
+            app.show_toast(format!("Cannot read {name}"), true);
+            continue;
+        };
+        let mut at = page;
+        at.x += 24.0 * nth as f32;
+        at.y += 24.0 * nth as f32;
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        match media_kind(ext) {
+            MediaKind::Video => {
+                place_video_bytes(app, at, &name, bytes);
+            }
+            MediaKind::Svg => {
+                // Vector layers, centered on the click.
+                let parent = create::container_at(&app.doc, app.page, at, &[]);
+                match String::from_utf8(bytes) {
+                    Ok(text) => {
+                        if let Err(e) = crate::clipboard::place_svg(app, &text, &name, at, parent) {
+                            app.show_toast(e, true);
+                        } else {
+                            app.tool = Tool::Move;
+                        }
+                    }
+                    Err(_) => app.show_toast("The SVG is not valid UTF-8", true),
                 }
             }
-            Err(_) => app.show_toast("The SVG is not valid UTF-8", true),
+            _ => {
+                place_image_bytes(app, at, &name, bytes);
+            }
         }
-        return;
     }
-    place_image_bytes(app, page, &name, bytes);
 }
 
 /// Embeds a video file and inserts a rectangle showing its poster frame at `page`. The poster is
@@ -1352,5 +1383,39 @@ mod tests {
         h264[at..at + 4].copy_from_slice(b"avc1");
         let id = place_video_bytes(&mut app, v2(0.0, 0.0), "h264", h264).unwrap();
         assert_eq!(app.doc.get(id).unwrap().prototype.videos.len(), 1);
+    }
+
+    #[test]
+    fn media_kind_classifies_extensions_case_insensitively() {
+        assert_eq!(media_kind("svg"), MediaKind::Svg);
+        assert_eq!(media_kind("SVG"), MediaKind::Svg);
+        for e in ["png", "PNG", "jpg", "JPG", "jpeg", "JPEG", "webp", "WebP"] {
+            assert_eq!(media_kind(e), MediaKind::Raster, "{e}");
+        }
+        for e in ["mp4", "MP4", "m4v", "mov", "MOV", "webm", "WEBM"] {
+            assert_eq!(media_kind(e), MediaKind::Video, "{e}");
+        }
+        for e in ["", "fig", "json", "desigma", "pdf", "gif", "txt"] {
+            assert_eq!(media_kind(e), MediaKind::Other, "{e}");
+        }
+    }
+
+    #[test]
+    fn staggered_placements_land_24px_apart() {
+        let (mut app, _a, _b) = app_with_two();
+        let page = v2(500.0, 500.0);
+        let mut ids = Vec::new();
+        for nth in 0..3 {
+            let mut at = page;
+            at.x += 24.0 * nth as f32;
+            at.y += 24.0 * nth as f32;
+            ids.push(place_image_bytes(&mut app, at, "photo", encode(image::ImageFormat::Png)).unwrap());
+        }
+        assert_eq!(app.selection, vec![*ids.last().unwrap()]);
+        for (i, id) in ids.iter().enumerate() {
+            let o = app.doc.world_transform(*id).apply(v2(0.0, 0.0));
+            assert!((o.x - (page.x + 24.0 * i as f32)).abs() < 1e-3, "x{i}: {o:?}");
+            assert!((o.y - (page.y + 24.0 * i as f32)).abs() < 1e-3, "y{i}: {o:?}");
+        }
     }
 }

@@ -28,6 +28,29 @@ pub fn load_path(path: &Path) -> Result<Document, String> {
             desigma_svg::import_svg_named(&text, name, &mut doc, page, Vec2::ZERO).map_err(|e| format!("Cannot import SVG: {e}"))?;
             doc
         }
+        "png" | "jpg" | "jpeg" | "webp" => {
+            let bytes = std::fs::read(path).map_err(|e| format!("Cannot read {}: {e}", path.display()))?;
+            let (bytes, w, h) = crate::canvas::interact::prepare_image(bytes)
+                .map_err(|e| format!("Cannot open {}: {e}", path.display()))?;
+            let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("Image");
+            let mut doc = Document::new(name);
+            doc.images.insert("img-1".to_string(), bytes);
+            let page = doc.add_page("Page 1");
+            let id = doc.alloc_id();
+            let mut node = desigma_doc::Node::rectangle(id, desigma_doc::Rect::new(0.0, 0.0, w as f32, h as f32));
+            node.name = name.to_string();
+            node.fills = vec![desigma_doc::Paint {
+                kind: desigma_doc::PaintKind::Image {
+                    image_ref: "img-1".to_string(),
+                    scale_mode: desigma_doc::ImageScaleMode::Fill,
+                },
+                opacity: 1.0,
+                visible: true,
+                blend: desigma_doc::BlendMode::Normal,
+            }];
+            doc.insert(page, node).map_err(|e| format!("Cannot open {}: {e}", path.display()))?;
+            doc
+        }
         _ => {
             let text = std::fs::read_to_string(path).map_err(|e| format!("Cannot read {}: {e}", path.display()))?;
             Document::from_json(&text).map_err(|e| format!("Invalid desigma file: {e}"))?
@@ -60,9 +83,10 @@ pub fn save_path(doc: &Document, path: &Path) -> Result<PathBuf, String> {
 
 pub fn pick_open() -> Option<PathBuf> {
     rfd::FileDialog::new()
-        .add_filter("Design files", &["fig", "json", "desigma", "svg"])
+        .add_filter("Design files", &["fig", "json", "desigma", "svg", "png", "jpg", "jpeg", "webp"])
         .add_filter("Figma file", &["fig"])
         .add_filter("SVG", &["svg"])
+        .add_filter("Images", &["png", "jpg", "jpeg", "webp"])
         .add_filter("JSON", &["json"])
         .add_filter("desigma", &[NATIVE_EXT])
         .pick_file()
@@ -133,6 +157,33 @@ mod tests {
         assert_eq!(page.name, "Page 1");
         assert_eq!(page.children.len(), 1);
         assert_eq!(d.get(page.children[0]).unwrap().name, d.name);
+    }
+
+    #[test]
+    fn raster_loads_as_image_document() {
+        for (file, fmt) in [("photo.png", image::ImageFormat::Png), ("photo.jpg", image::ImageFormat::Jpeg)] {
+            let img = image::DynamicImage::ImageRgb8(image::RgbImage::from_fn(8, 4, |x, y| {
+                image::Rgb([x as u8 * 30, y as u8 * 60, 90])
+            }));
+            let mut out = std::io::Cursor::new(Vec::new());
+            img.write_to(&mut out, fmt).unwrap();
+            let p = tmp(file);
+            std::fs::write(&p, out.into_inner()).unwrap();
+            let d = load_path(&p).unwrap_or_else(|e| panic!("{file}: {e}"));
+            std::fs::remove_file(&p).ok();
+            assert_eq!(d.images.len(), 1);
+            assert_eq!(d.images["img-1"].len() > 0, true);
+            assert_eq!(d.pages.len(), 1);
+            let page = d.get(d.pages[0]).unwrap();
+            assert_eq!(page.children.len(), 1);
+            let n = d.get(page.children[0]).unwrap();
+            assert!(matches!(
+                &n.fills[0].kind,
+                desigma_doc::PaintKind::Image { image_ref, scale_mode }
+                if image_ref == "img-1" && *scale_mode == desigma_doc::ImageScaleMode::Fill
+            ));
+            assert!((n.size.x - 8.0).abs() < 1e-3 && (n.size.y - 4.0).abs() < 1e-3);
+        }
     }
 
     #[test]
