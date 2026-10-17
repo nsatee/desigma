@@ -248,6 +248,7 @@ pub fn stop_color_at(stops: &[GradientStop], t: f32) -> Color {
                 g: l(w[0].color.g, w[1].color.g),
                 b: l(w[0].color.b, w[1].color.b),
                 a: l(w[0].color.a, w[1].color.a),
+                oklch: None,
             };
         }
     }

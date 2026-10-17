@@ -240,7 +240,7 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 
 fn lerp_color(a: Color, b: Color, t: f32) -> Color {
     let c = |x: f32| x.clamp(0.0, 1.0);
-    Color { r: c(lerp(a.r, b.r, t)), g: c(lerp(a.g, b.g, t)), b: c(lerp(a.b, b.b, t)), a: c(lerp(a.a, b.a, t)) }
+    Color { r: c(lerp(a.r, b.r, t)), g: c(lerp(a.g, b.g, t)), b: c(lerp(a.b, b.b, t)), a: c(lerp(a.a, b.a, t)), oklch: None }
 }
 
 /// Interpolates translation, rotation and scale (skew is dropped).

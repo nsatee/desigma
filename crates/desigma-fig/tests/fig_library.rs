@@ -232,7 +232,7 @@ fn nested_library_instances_expand_and_overrides_follow_override_keys() {
     // The nested icon was expanded (innermost first) and the two-key path reached its glyph.
     let icon = child(&doc, buy, "icon");
     let glyph = child(&doc, icon, "Glyph");
-    assert_eq!(solid_of(glyph), Color { r: 0.0, g: 0.0, b: 1.0, a: 1.0 });
+    assert_eq!(solid_of(glyph), Color { r: 0.0, g: 0.0, b: 1.0, a: 1.0, oklch: None });
     assert!(glyph.component.source.is_some());
     // The component property hid the nested icon.
     assert!(!icon.visible);
@@ -241,7 +241,7 @@ fn nested_library_instances_expand_and_overrides_follow_override_keys() {
     let comp = doc.get(instance_component(buy).unwrap()).unwrap();
     let lib_icon = child(&doc, comp, "icon");
     assert!(lib_icon.visible);
-    assert_eq!(solid_of(child(&doc, child(&doc, comp, "icon"), "Glyph")), Color { r: 1.0, g: 0.0, b: 0.0, a: 1.0 });
+    assert_eq!(solid_of(child(&doc, child(&doc, comp, "icon"), "Glyph")), Color { r: 1.0, g: 0.0, b: 0.0, a: 1.0, oklch: None });
 }
 
 #[test]
@@ -249,7 +249,7 @@ fn overrides_that_name_a_library_style_take_its_paints() {
     let doc = import_fig_node_changes(&fixture(), "t").unwrap();
     let buy2 = find(&doc, "Buy 2");
     let glyph = child(&doc, child(&doc, buy2, "icon"), "Glyph");
-    assert_eq!(solid_of(glyph), Color { r: 0.0, g: 1.0, b: 0.0, a: 1.0 });
+    assert_eq!(solid_of(glyph), Color { r: 0.0, g: 1.0, b: 0.0, a: 1.0, oklch: None });
     assert!(child(&doc, buy2, "icon").visible, "no assignment: the default stays");
 }
 
@@ -348,7 +348,7 @@ fn linked_text_styles_replace_stale_properties_before_character_overrides() {
         assert_eq!(t.runs[0].style.font_size, 20.0);
         assert_eq!(t.runs[0].style.font_weight, 400);
         assert_eq!(t.runs[0].style.decoration, TextDecoration::Underline);
-        assert_eq!(t.style.fills[0].kind, PaintKind::Solid(Color { r: 1.0, g: 0.0, b: 0.0, a: 1.0 }));
+        assert_eq!(t.style.fills[0].kind, PaintKind::Solid(Color { r: 1.0, g: 0.0, b: 0.0, a: 1.0, oklch: None }));
         let NodeKind::Text(t) = &find(&doc, "Tracking").kind else { panic!("text") };
         assert!((t.runs[0].style.letter_spacing - 1.6).abs() < 1e-6);
     }

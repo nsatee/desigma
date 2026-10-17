@@ -49,7 +49,7 @@ fn imports_node_bindings_and_modes() {
     let title = find(&doc, "Title");
     assert_eq!(title.variables.bindings["characters"], "VariableID:1:5");
     // resolved through the Dark mode inherited by the text: alias -> Primitives
-    assert_eq!(doc.bound_value(card.id, "fills/0"), Some(VariableValue::Color(Color { r: 0.172, g: 0.172, b: 0.172, a: 1.0 })));
+    assert_eq!(doc.bound_value(card.id, "fills/0"), Some(VariableValue::Color(Color { r: 0.172, g: 0.172, b: 0.172, a: 1.0, oklch: None })));
     assert_eq!(doc.bound_value(title.id, "characters"), Some(VariableValue::String("Hallo".into())));
     let r = resolved_node(&doc, title.id).unwrap();
     assert!(matches!(&r.kind, NodeKind::Text(t) if t.content == "Hallo" && t.style.font_size == 16.0));

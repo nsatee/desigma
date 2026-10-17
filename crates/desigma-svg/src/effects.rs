@@ -49,7 +49,7 @@ fn one_filter(prims: &[usvg::filter::Primitive]) -> Vec<Effect> {
                 let sd = (s.std_dev_x().get() + s.std_dev_y().get()) / 2.0;
                 let c = s.color();
                 out.push(Effect::DropShadow {
-                    color: Color { r: c.red as f32 / 255.0, g: c.green as f32 / 255.0, b: c.blue as f32 / 255.0, a: s.opacity().get() },
+                    color: Color { r: c.red as f32 / 255.0, g: c.green as f32 / 255.0, b: c.blue as f32 / 255.0, a: s.opacity().get(), oklch: None },
                     offset: Vec2::new(s.dx(), s.dy()),
                     radius: sd * 2.0,
                     spread: 0.0,
@@ -80,7 +80,7 @@ fn one_filter(prims: &[usvg::filter::Primitive]) -> Vec<Effect> {
                     // (The alpha-hardening matrix has a huge alpha gain and no color.)
                     let alpha = v[18];
                     if alpha > 0.0 && alpha < 50.0 {
-                        let color = Color { r: v[4].clamp(0.0, 1.0), g: v[9].clamp(0.0, 1.0), b: v[14].clamp(0.0, 1.0), a: alpha.clamp(0.0, 1.0) };
+                        let color = Color { r: v[4].clamp(0.0, 1.0), g: v[9].clamp(0.0, 1.0), b: v[14].clamp(0.0, 1.0), a: alpha.clamp(0.0, 1.0), oklch: None };
                         let c = std::mem::take(&mut chain);
                         out.push(if c.inner {
                             // An inner shadow's morphology erodes the hole; spread is its size.

@@ -1,3 +1,8 @@
+// Sibling module without a `mod color;` line in lib.rs: keeps OKLCH wiring local to paint.
+#[path = "color.rs"]
+mod color;
+pub use color::Oklch;
+
 use crate::Vec2;
 use serde::{Deserialize, Serialize};
 
@@ -8,18 +13,22 @@ pub struct Color {
     pub g: f32,
     pub b: f32,
     pub a: f32,
+    /// OKLCH authoring source; `None` for plain sRGB colors. Skipped on the
+    /// wire when absent so old `{r,g,b,a}` JSON round-trips byte-identical.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oklch: Option<Oklch>,
 }
 
 impl Color {
-    pub const BLACK: Self = Self { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };
-    pub const WHITE: Self = Self { r: 1.0, g: 1.0, b: 1.0, a: 1.0 };
-    pub const TRANSPARENT: Self = Self { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
+    pub const BLACK: Self = Self { r: 0.0, g: 0.0, b: 0.0, a: 1.0, oklch: None };
+    pub const WHITE: Self = Self { r: 1.0, g: 1.0, b: 1.0, a: 1.0, oklch: None };
+    pub const TRANSPARENT: Self = Self { r: 0.0, g: 0.0, b: 0.0, a: 0.0, oklch: None };
 
     pub fn rgb(r: u8, g: u8, b: u8) -> Self {
         Self::rgba(r, g, b, 255)
     }
     pub fn rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self { r: r as f32 / 255.0, g: g as f32 / 255.0, b: b as f32 / 255.0, a: a as f32 / 255.0 }
+        Self { r: r as f32 / 255.0, g: g as f32 / 255.0, b: b as f32 / 255.0, a: a as f32 / 255.0, oklch: None }
     }
     /// Parses `#RGB`, `#RRGGBB` or `#RRGGBBAA`.
     pub fn from_hex(s: &str) -> Option<Self> {

@@ -31,7 +31,7 @@ pub fn affine(t: Transform) -> d::Affine {
 }
 
 pub fn color(c: usvg::Color, alpha: f32) -> d::Color {
-    d::Color { r: c.red as f32 / 255.0, g: c.green as f32 / 255.0, b: c.blue as f32 / 255.0, a: alpha }
+    d::Color { r: c.red as f32 / 255.0, g: c.green as f32 / 255.0, b: c.blue as f32 / 255.0, a: alpha, oklch: None }
 }
 
 fn map(t: &Transform, x: f32, y: f32) -> (f32, f32) {

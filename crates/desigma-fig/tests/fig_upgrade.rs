@@ -115,7 +115,7 @@ fn instance_overrides_apply_to_the_copy_only() {
     let label = child(&d, a, "Label");
     let t = text(label);
     assert_eq!(t.content, "New \u{1F600}");
-    assert_eq!(solid(&t.style.fills), Color { r: 1.0, g: 0.0, b: 0.0, a: 1.0 });
+    assert_eq!(solid(&t.style.fills), Color { r: 1.0, g: 0.0, b: 0.0, a: 1.0, oklch: None });
     assert!((t.style.letter_spacing - 5.0).abs() < 1e-4, "50% of the target's 10px font");
     assert_eq!(label.opacity, 0.75);
     assert_eq!(label.source_id.as_deref(), Some("I2:40;2:11"));
@@ -131,7 +131,7 @@ fn instance_overrides_apply_to_the_copy_only() {
     let inner = child(&d, a, "Inner");
     let dot = child(&d, inner, "Dot");
     assert_eq!(dot.size, Vec2::new(7.0, 7.0));
-    assert_eq!(solid(&dot.fills), Color { r: 0.0, g: 0.0, b: 1.0, a: 1.0 });
+    assert_eq!(solid(&dot.fills), Color { r: 0.0, g: 0.0, b: 1.0, a: 1.0, oklch: None });
     assert_eq!(comp_dot(&d).size, Vec2::new(5.0, 5.0));
 
     // Another instance of the same component is independent.

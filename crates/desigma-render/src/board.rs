@@ -421,7 +421,7 @@ fn lower_table(doc: &Document, n: &Node, t: &TableProps, body: &mut Node, extras
 }
 
 /// Colour of vote dots.
-pub const VOTE_COLOR: Color = Color { r: 0.592, g: 0.278, b: 1.0, a: 1.0 };
+pub const VOTE_COLOR: Color = Color { r: 0.592, g: 0.278, b: 1.0, a: 1.0, oklch: None };
 
 /// The vote dot in the top right corner of `n` with the number of votes on it.
 fn vote_badge(n: &Node, count: u32, extras: &mut Vec<Node>) {

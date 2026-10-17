@@ -37,7 +37,7 @@ fn overridden_symbol_id_swaps_the_nested_instance() {
     assert_eq!(children(&doc, icon_a), vec!["People", "People2"], "children come from the swapped component");
     let people = child(&doc, icon_a, "People");
     match people.fills.first().map(|p| &p.kind) {
-        Some(PaintKind::Solid(c)) => assert_eq!(*c, Color { r: 1.0, g: 0.0, b: 0.0, a: 1.0 }, "deeper override applied after the swap"),
+        Some(PaintKind::Solid(c)) => assert_eq!(*c, Color { r: 1.0, g: 0.0, b: 0.0, a: 1.0, oklch: None }, "deeper override applied after the swap"),
         other => panic!("unexpected fill {other:?}"),
     }
 

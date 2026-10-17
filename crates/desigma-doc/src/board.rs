@@ -23,7 +23,7 @@ pub enum DocumentKind {
 /// Default sticky note edge length.
 pub const STICKY_SIZE: f32 = 240.0;
 /// Default sticky note fill (pale yellow).
-pub const STICKY_YELLOW: Color = Color { r: 1.0, g: 0.898, b: 0.561, a: 1.0 };
+pub const STICKY_YELLOW: Color = Color { r: 1.0, g: 0.898, b: 0.561, a: 1.0, oklch: None };
 /// Largest sticky note text size; the text shrinks from here as it grows.
 pub const STICKY_FONT_MAX: f32 = 32.0;
 /// Smallest text size before a sticky note's text is clipped.

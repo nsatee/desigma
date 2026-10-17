@@ -34,7 +34,18 @@ pub(crate) fn vec2(v: &Value) -> Option<Vec2> {
 }
 
 pub(crate) fn color(v: &Value) -> Option<Color> {
-    Some(Color { r: fnum(v, "r")?, g: fnum(v, "g")?, b: fnum(v, "b")?, a: fnum(v, "a").unwrap_or(1.0) })
+    let a = fnum(v, "a").unwrap_or(1.0);
+    // Our own extension: an OKLCH authoring source rides alongside sRGB.
+    // Figma REST itself only sends {r,g,b,a}; nested form wins over flat.
+    if let Some(o) = v.get("oklch") {
+        if let (Some(l), Some(c), Some(h)) = (fnum(o, "l"), fnum(o, "c"), fnum(o, "h")) {
+            return Some(Color::from_oklch(l, c, h, a));
+        }
+    }
+    if let (Some(l), Some(c), Some(h)) = (fnum(v, "oklch_l"), fnum(v, "oklch_c"), fnum(v, "oklch_h")) {
+        return Some(Color::from_oklch(l, c, h, a));
+    }
+    Some(Color { r: fnum(v, "r")?, g: fnum(v, "g")?, b: fnum(v, "b")?, a, oklch: None })
 }
 
 pub(crate) fn blend(s: &str) -> BlendMode {
@@ -1759,4 +1770,37 @@ pub fn image_refs(doc: &Document) -> Vec<String> {
         }
     }
     set.into_iter().collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn rest_oklch_import() {
+        let v = json!({"oklch": {"l": 0.628, "c": 0.258, "h": 29.0}, "a": 0.5});
+        let c = color(&v).unwrap();
+        assert!(c.is_oklch());
+        assert_eq!(c.a, 0.5);
+        assert!(c.r > 0.99, "r={}", c.r);
+        assert_eq!(c.oklch.unwrap(), desigma_doc::Oklch { l: 0.628, c: 0.258, h: 29.0 });
+    }
+
+    #[test]
+    fn rest_oklch_flat_import() {
+        // Flat keys lose to nothing here (no nested form); sRGB present but unused.
+        let v = json!({"oklch_l": 0.628, "oklch_c": 0.258, "oklch_h": 29.0, "r": 0.0, "g": 0.0, "b": 1.0});
+        let c = color(&v).unwrap();
+        assert!(c.is_oklch());
+        assert!(c.r > 0.99, "r={}", c.r);
+    }
+
+    #[test]
+    fn rest_srgb_unchanged() {
+        let v = json!({"r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0});
+        let c = color(&v).unwrap();
+        assert!(!c.is_oklch());
+        assert_eq!((c.r, c.g, c.b, c.a), (1.0, 0.0, 0.0, 1.0));
+    }
 }

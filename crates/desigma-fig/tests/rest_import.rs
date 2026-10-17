@@ -94,7 +94,7 @@ fn child_layout_paints_and_relative_positions() {
             assert_eq!(handles[0], Vec2::new(0.0, 0.5));
             assert_eq!(handles[1], Vec2::new(1.0, 0.5));
             assert_eq!(stops.len(), 2);
-            assert_eq!(stops[1].color, Color { r: 0.0, g: 0.0, b: 1.0, a: 1.0 });
+            assert_eq!(stops[1].color, Color { r: 0.0, g: 0.0, b: 1.0, a: 1.0, oklch: None });
         }
         k => panic!("{k:?}"),
     }

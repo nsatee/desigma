@@ -186,7 +186,7 @@ pub const TABLE_CELL_PAD: f32 = 10.0;
 /// Text size of a cell (it shrinks to fit like a sticky note's).
 pub const TABLE_FONT: f32 = 16.0;
 /// Grid line colour.
-pub const TABLE_LINE: Color = Color { r: 0.769, g: 0.769, b: 0.769, a: 1.0 };
+pub const TABLE_LINE: Color = Color { r: 0.769, g: 0.769, b: 0.769, a: 1.0, oklch: None };
 
 /// A table: widths of its columns and heights of its rows, in order.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

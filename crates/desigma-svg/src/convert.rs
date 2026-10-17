@@ -512,7 +512,7 @@ fn path_cmds(p: &usvg::tiny_skia_path::Path, origin: (f32, f32)) -> Vec<PathCmd>
 /// A luminance mask reads brightness; desigma masks read alpha. Painting the
 /// same shape black with alpha = luminance x alpha is equivalent.
 fn luma_paint(mut p: Paint) -> Paint {
-    let conv = |c: Color| Color { r: 0.0, g: 0.0, b: 0.0, a: paint::luminance(&c) * c.a };
+    let conv = |c: Color| Color { r: 0.0, g: 0.0, b: 0.0, a: paint::luminance(&c) * c.a, oklch: None };
     match &mut p.kind {
         PaintKind::Solid(c) => *c = conv(*c),
         PaintKind::LinearGradient { stops, .. }
